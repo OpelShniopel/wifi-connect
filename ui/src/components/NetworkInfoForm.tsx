@@ -97,25 +97,19 @@ export const NetworkInfoForm = ({
 				style={{ fontWeight: 700 }}
 				fontSize={'23px'}
 			>
-				<Flex
-					alignItems="center"
-					flexDirection="row"
-					flexWrap="wrap"
-					justifyContent="center"
+				Hi! Please choose your WiFi{' '}
+				<Button
+					type="button"
+					ml={2}
+					tertiary
+					plain
+					icon={<RefreshIcon />}
+					disabled={isRefreshingNetworks}
+					onClick={onRefreshNetworks}
+					style={{ display: 'inline-flex', verticalAlign: 'middle' }}
 				>
-					Hi! Please choose your WiFi
-					<Button
-						type="button"
-						ml={3}
-						tertiary
-						plain
-						icon={<RefreshIcon />}
-						disabled={isRefreshingNetworks}
-						onClick={onRefreshNetworks}
-					>
-						{isRefreshingNetworks ? 'Refreshing...' : 'Rescan'}
-					</Button>
-				</Flex>
+					{isRefreshingNetworks ? 'Refreshing...' : 'Rescan'}
+				</Button>
 			</Heading.h3>
 
 			<Form
