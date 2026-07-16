@@ -18,8 +18,8 @@ export const Notifications = ({
 				<Alert m={2} bg="var(--darker)" warning>
 					<Txt.span>Refreshing WiFi list... </Txt.span>
 					<Txt.span>
-						The Access Point may disconnect briefly. Reconnect to this portal
-						and reload the page if needed.
+						The Access Point may disconnect briefly. Reconnect to it and the
+						list will update automatically.
 					</Txt.span>
 				</Alert>
 			)}

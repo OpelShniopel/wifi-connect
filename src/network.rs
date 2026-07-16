@@ -234,7 +234,18 @@ impl NetworkCommandHandler {
 
         self.portal_connection = Some(create_portal(&self.device, &self.config)?);
 
-        self.access_points = access_points?;
+        // A failed scan must not exit the process: that would tear down the
+        // portal we just recreated, and the provision loop may keep it down
+        // for minutes. Keep serving the previous list instead.
+        match access_points {
+            Ok(access_points) => {
+                self.access_points = access_points;
+                info!("WiFi networks refreshed");
+            }
+            Err(e) => {
+                warn!("Scan failed during refresh, keeping previous list: {}", e);
+            }
+        }
 
         Ok(())
     }

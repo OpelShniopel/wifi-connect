@@ -77,6 +77,14 @@ export interface Network {
 	security: string;
 }
 
+// Rescan drops the AP ~1s after the 202 and brings it back once the scan is
+// done; the phone then needs a moment to rejoin. Wait a bit before the first
+// poll, retry until the portal is reachable again, give up after 90s.
+const REFRESH_POLL_INITIAL_DELAY_MS = 4000;
+const REFRESH_POLL_INTERVAL_MS = 3000;
+const REFRESH_POLL_ATTEMPT_TIMEOUT_MS = 5000;
+const REFRESH_POLL_DEADLINE_MS = 90000;
+
 const App = () => {
 	const [attemptedConnect, setAttemptedConnect] = React.useState(false);
 	const [isFetchingNetworks, setIsFetchingNetworks] = React.useState(true);
@@ -86,8 +94,19 @@ const App = () => {
 		[],
 	);
 
-	React.useEffect(() => {
-		fetch('/networks', { cache: 'no-store' })
+	const fetchNetworks = (timeoutMs?: number): Promise<Network[]> => {
+		let signal: AbortSignal | undefined;
+		let timer: number | undefined;
+
+		if (timeoutMs !== undefined) {
+			const controller = new AbortController();
+			signal = controller.signal;
+			timer = window.setTimeout(() => {
+				controller.abort();
+			}, timeoutMs);
+		}
+
+		return fetch('/networks', { cache: 'no-store', signal })
 			.then((data) => {
 				if (data.status !== 200) {
 					throw new Error(data.statusText);
@@ -95,6 +114,15 @@ const App = () => {
 
 				return data.json();
 			})
+			.finally(() => {
+				if (timer !== undefined) {
+					window.clearTimeout(timer);
+				}
+			});
+	};
+
+	React.useEffect(() => {
+		fetchNetworks()
 			.then(setAvailableNetworks)
 			.catch((e: Error) => {
 				setError(`Failed to fetch available networks. ${e.message || e}`);
@@ -125,6 +153,37 @@ const App = () => {
 			});
 	};
 
+	// The rescan tears the access point down, so the portal is unreachable
+	// until the phone rejoins it. Poll until a fetch gets through, then show
+	// the fresh list — no manual page reload needed.
+	const pollNetworksUntilRefreshed = (deadline: number) => {
+		fetchNetworks(REFRESH_POLL_ATTEMPT_TIMEOUT_MS)
+			.then((networks) => {
+				setAvailableNetworks(networks);
+				setError('');
+				setIsRefreshingNetworks(false);
+			})
+			.catch(() => {
+				if (Date.now() < deadline) {
+					window.setTimeout(() => {
+						pollNetworksUntilRefreshed(deadline);
+					}, REFRESH_POLL_INTERVAL_MS);
+				} else {
+					setIsRefreshingNetworks(false);
+					setError(
+						'Could not reach the device after the rescan. Reconnect to the access point and reload this page.',
+					);
+				}
+			});
+	};
+
+	const startRefreshPolling = () => {
+		const deadline = Date.now() + REFRESH_POLL_DEADLINE_MS;
+		window.setTimeout(() => {
+			pollNetworksUntilRefreshed(deadline);
+		}, REFRESH_POLL_INITIAL_DELAY_MS);
+	};
+
 	const onRefreshNetworks = () => {
 		setIsRefreshingNetworks(true);
 		setError('');
@@ -136,10 +195,18 @@ const App = () => {
 				if (resp.status !== 202 && resp.status !== 200) {
 					throw new Error(resp.statusText);
 				}
+
+				startRefreshPolling();
 			})
 			.catch((e: Error) => {
-				setIsRefreshingNetworks(false);
-				setError(`Failed to refresh available networks. ${e.message || e}`);
+				if (e instanceof TypeError) {
+					// The network dropped before the response arrived — the AP is
+					// likely already down and the rescan underway, so poll anyway.
+					startRefreshPolling();
+				} else {
+					setIsRefreshingNetworks(false);
+					setError(`Failed to refresh available networks. ${e.message || e}`);
+				}
 			});
 	};
 
