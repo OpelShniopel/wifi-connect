@@ -99,15 +99,14 @@ export const NetworkInfoForm = ({
 			>
 				<Flex
 					alignItems="center"
-					flexDirection={['column', 'row']}
+					flexDirection="row"
 					flexWrap="wrap"
 					justifyContent="center"
 				>
 					Hi! Please choose your WiFi
 					<Button
 						type="button"
-						ml={[0, 3]}
-						mt={[2, 0]}
+						ml={3}
 						tertiary
 						plain
 						icon={<RefreshIcon />}
