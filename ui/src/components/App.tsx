@@ -5,8 +5,16 @@ import { Notifications } from './Notifications';
 import { createGlobalStyle } from 'styled-components';
 
 const GlobalStyle = createGlobalStyle`
+	html,
+	body {
+		overscroll-behavior-y: none;
+	}
+
 	body {
 		margin: 0;
+		/* 2px taller than the viewport so the page always has 1px of
+		   scroll headroom — see the pull-to-refresh workaround in App. */
+		min-height: calc(100vh + 2px);
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
 			'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
 			sans-serif;
@@ -120,6 +128,25 @@ const App = () => {
 				}
 			});
 	};
+
+	// Android's captive-portal window wraps the page in a native
+	// pull-to-refresh layout that only looks at the page's own scroll
+	// position, not the SSID dropdown's inner list. Keeping the page
+	// scrolled down by 1px makes the native layer think the page can
+	// still scroll up, so dragging down inside the list scrolls the
+	// list instead of reloading the page.
+	React.useEffect(() => {
+		const keepPageScrolled = () => {
+			if (window.scrollY === 0) {
+				window.scrollTo(0, 1);
+			}
+		};
+		keepPageScrolled();
+		window.addEventListener('scroll', keepPageScrolled, { passive: true });
+		return () => {
+			window.removeEventListener('scroll', keepPageScrolled);
+		};
+	}, []);
 
 	React.useEffect(() => {
 		fetchNetworks()
